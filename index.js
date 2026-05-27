@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 
 const FEISHU_BASE_URL = "https://open.feishu.cn/open-apis";
 const startedAt = new Date().toISOString();
@@ -45,15 +46,57 @@ function missingConfig() {
     .map(([key]) => key);
 }
 
-async function feishuRequest(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    signal: AbortSignal.timeout(options.timeoutMs || 20000)
-  });
-  const body = await response.json().catch(() => ({}));
+function requestJson(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const body = options.body || "";
+    const req = https.request(
+      {
+        method: options.method || "GET",
+        hostname: parsed.hostname,
+        path: `${parsed.pathname}${parsed.search}`,
+        headers: {
+          ...(options.headers || {}),
+          ...(body ? { "Content-Length": Buffer.byteLength(body) } : {})
+        },
+        timeout: options.timeoutMs || 20000
+      },
+      (res) => {
+        let data = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          let json = {};
+          try {
+            json = data ? JSON.parse(data) : {};
+          } catch (error) {
+            error.statusCode = 502;
+            error.details = data.slice(0, 500);
+            reject(error);
+            return;
+          }
+          resolve({ statusCode: res.statusCode || 0, body: json });
+        });
+      }
+    );
 
-  if (!response.ok || body.code !== 0) {
-    const error = new Error(body.msg || `Feishu request failed with HTTP ${response.status}`);
+    req.on("timeout", () => {
+      req.destroy(new Error("Feishu request timeout"));
+    });
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function feishuRequest(url, options = {}) {
+  const response = await requestJson(url, options);
+  const body = response.body;
+
+  if (response.statusCode < 200 || response.statusCode >= 300 || body.code !== 0) {
+    const error = new Error(body.msg || `Feishu request failed with HTTP ${response.statusCode}`);
     error.statusCode = 502;
     error.details = body;
     throw error;

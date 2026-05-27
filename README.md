@@ -6,6 +6,7 @@ Railway-ready API for the Ozon dashboard.
 
 - Uses `http.createServer`, not `https.createServer`. Railway handles HTTPS before traffic reaches the container.
 - Uses only Node.js built-ins, so there are no dependency-install failures.
+- Feishu requests use Node's `https` module, so the service does not depend on runtime `fetch` support.
 - `/health` does not call Feishu, so the service can start and pass health checks even when Feishu is temporarily unavailable.
 - Keeps the old frontend endpoints:
   - `GET /products`
