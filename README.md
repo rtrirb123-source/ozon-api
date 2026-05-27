@@ -11,6 +11,11 @@ Railway-ready API for the Ozon dashboard.
 - Keeps the old frontend endpoints:
   - `GET /products`
   - `POST /products`
+- `POST /products` now performs a partial row update: fields omitted by the
+  frontend keep their existing Feishu values instead of being cleared.
+- `POST /products` accepts common aliases such as `佣金`, `commission`,
+  `佣金率`, `售价`, `价格`, `price`, and returns the merged saved row as
+  `product`.
 - Adds stable dashboard endpoints:
   - `GET /api/dashboard`
   - `GET /api/products`

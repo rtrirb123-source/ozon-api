@@ -215,6 +215,35 @@ async function updateSheetRow(rowNumber, values) {
   });
 }
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function valueFromPayload(payload, keys, fallback) {
+  for (const key of keys) {
+    if (hasOwn(payload, key)) {
+      return payload[key] ?? "";
+    }
+  }
+  return fallback ?? "";
+}
+
+function rowToObject(row) {
+  return {
+    offer_id: row[0] ?? "",
+    product_id: row[1] ?? "",
+    "产品策略": row[2] ?? "",
+    "佣金率": row[3] ?? "",
+    "采购成本": row[4] ?? "",
+    "重量": row[5] ?? "",
+    "运费系数": row[6] ?? "",
+    "退货率": row[7] ?? "",
+    "广告比例": row[8] ?? "",
+    "售价": row[9] ?? "",
+    "竞品对比": row[10] ?? ""
+  };
+}
+
 async function fetchDashboard({ refresh = false } = {}) {
   if (!refresh && cache.value && Date.now() < cache.expiresAt) {
     return { ...cache.value, cache: { hit: true, updatedAt: cache.updatedAt } };
@@ -264,33 +293,39 @@ async function fetchDashboard({ refresh = false } = {}) {
 }
 
 async function saveProduct(payload) {
-  const values = await getSheetValues("A:A");
+  const values = await getSheetValues("A:K");
   let targetRow = values.length + 1;
   const targetOfferId = String(payload.offer_id || payload.sku || "").trim();
+  let existingRow = [];
 
   for (let index = 1; index < values.length; index += 1) {
     if (String(values[index][0] || "").trim() === targetOfferId) {
       targetRow = index + 1;
+      existingRow = values[index] || [];
       break;
     }
   }
 
+  const nextRow = [
+    valueFromPayload(payload, ["offer_id", "sku", "SKU"], existingRow[0]),
+    valueFromPayload(payload, ["product_id"], existingRow[1]),
+    valueFromPayload(payload, ["产品策略", "strategy", "product_strategy"], existingRow[2]),
+    valueFromPayload(payload, ["佣金率", "佣金", "commission", "commission_rate", "commissionRate"], existingRow[3]),
+    valueFromPayload(payload, ["采购成本", "采购价", "采购价格", "procurement_cost", "purchase_cost", "purchasePrice"], existingRow[4]),
+    valueFromPayload(payload, ["重量", "weight"], existingRow[5]),
+    valueFromPayload(payload, ["运费系数", "freight_rate", "freightRate"], existingRow[6]),
+    valueFromPayload(payload, ["退货率", "return_rate", "returnRate"], existingRow[7]),
+    valueFromPayload(payload, ["广告比例", "ad_ratio", "adRatio"], existingRow[8]),
+    valueFromPayload(payload, ["售价", "价格", "售卖价", "销售价", "price", "sale_price", "salePrice", "selling_price", "sellingPrice"], existingRow[9]),
+    valueFromPayload(payload, ["竞品对比", "竞品信息", "competitor_compare", "competitorCompare"], existingRow[10])
+  ];
+
   await updateSheetRow(targetRow, [
-    payload.offer_id || payload.sku || "",
-    payload.product_id ? String(payload.product_id) : "",
-    payload["产品策略"] || payload.strategy || "",
-    payload["佣金率"] ?? payload.commission ?? "",
-    payload["采购成本"] ?? payload.procurement_cost ?? "",
-    payload["重量"] ?? payload.weight ?? "",
-    payload["运费系数"] ?? payload.freight_rate ?? "",
-    payload["退货率"] ?? payload.return_rate ?? "",
-    payload["广告比例"] ?? payload.ad_ratio ?? "",
-    payload["售价"] ?? payload.price ?? "",
-    payload["竞品对比"] || payload.competitor_compare || ""
+    ...nextRow
   ]);
 
   cache.value = null;
-  return { success: true, row: targetRow };
+  return { success: true, row: targetRow, partialUpdate: true, product: rowToObject(nextRow) };
 }
 
 async function readJsonBody(req) {
