@@ -37,6 +37,17 @@ CACHE_TTL_SECONDS=60
 
 `FEISHU_TABLE_TOKEN` and `FEISHU_SHEET_ID` are also supported as aliases.
 
+For product images, add column L in Feishu with the header:
+
+```text
+商品图片
+```
+
+Then set Railway `FEISHU_RANGE=A:L` or remove the variable so the API uses the
+default `A:L` range. `POST /products` accepts image fields named `商品图片`,
+`图片`, `主图`, `image`, `imageUrl`, `mainImage`, `product_image`, or
+`productImage`.
+
 ## Verify after deploy
 
 Open:
